@@ -12,6 +12,9 @@ public class Main {
             if (a.isEmpty()) {
                 continue;
             }
+            if(a.equals("exit")){
+                break;
+            }
             System.err.println(a+": command not found");
         }
     }
