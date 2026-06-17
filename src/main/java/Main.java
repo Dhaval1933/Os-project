@@ -1,21 +1,30 @@
 import java.util.Scanner;
-
 public class Main {
     public static void main(String[] args) throws Exception {
-        Scanner sc=new Scanner(System.in);
-        while(true){
+        Scanner sc = new Scanner(System.in);
+        while (true) {
             System.out.print("$ ");
-            if(!sc.hasNext()){
+            if (!sc.hasNextLine()) {
                 break;
             }
-            String a=sc.nextLine().trim();
+            String a = sc.nextLine().trim();
             if (a.isEmpty()) {
                 continue;
             }
-            if(a.equals("exit")){
-                break;
+            String[] inputParts = a.split(" ");
+            String command = inputParts[0];
+            if (command.equals("echo")) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 1; i < inputParts.length; i++) {
+                    sb.append(inputParts[i]);
+                    if (i < inputParts.length - 1) {
+                        sb.append(" ");
+                    }
+                }
+                System.out.println(sb.toString());
+            } else {
+                System.out.println(a + ": command not found");
             }
-            System.err.println(a+": command not found");
         }
     }
 }
