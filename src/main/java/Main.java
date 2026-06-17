@@ -1,37 +1,47 @@
 import java.util.Scanner;
 
 public class Main {
-    public static void main(String[] args) throws Exception {
-        Scanner sc=new Scanner(System.in);
-        while(true){
+
+    public static void main(String[] args) {
+
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+
             System.out.print("$ ");
-            if(!sc.hasNext()){
+            System.out.flush();
+
+            String input = scanner.nextLine().trim();
+
+            if (input.equals("exit")) {
                 break;
             }
-            String a=sc.nextLine().trim();
-            if (a.isEmpty()) {
+
+            // echo builtin
+            if (input.startsWith("echo ")) {
+                System.out.println(input.substring(5));
                 continue;
             }
-            if(a.equals("exit")){
-                break;
+
+            // type builtin
+            if (input.startsWith("type ")) {
+
+                String cmd = input.substring(5).trim();
+
+                if (cmd.equals("echo") || cmd.equals("exit") || cmd.equals("type")) {
+                    System.out.println(cmd + " is a shell builtin");
+                } else {
+                    System.out.println(cmd + ": not found");
+                }
+
+                continue;
             }
-            if(a.equals("type echo")){
-                System.out.println("echo is a shell builtin");
+
+            if (!input.isEmpty()) {
+                System.out.println(input + ": command not found");
             }
-            else if(a.equals("type exit")){
-                System.out.println("exit is a shell builtin");
-            }
-            else if(a.equals("type type")){
-                System.out.println("type is a shell builtin");
-            }
-            else if(a.startsWith("type")){
-                System.out.println(a.substring(5)+": not found");
-            }
-            if(a.startsWith("echo ")){
-                System.out.println(a.substring(5));
-            }
-            else
-            System.err.println(a+": command not found");
         }
+
+        scanner.close();
     }
 }
