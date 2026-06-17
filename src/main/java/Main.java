@@ -15,6 +15,18 @@ public class Main {
             if(a.equals("exit")){
                 break;
             }
+            if(a.equals("type echo")){
+                System.out.println("echo is a shell builtin");
+            }
+            else if(a.equals("type exit")){
+                System.out.println("exit is a shell builtin");
+            }
+            else if(a.equals("type type")){
+                System.out.println("type is a shell builtin");
+            }
+            else if(a.startsWith("type")){
+                System.out.println(a.substring(5)+": not found");
+            }
             if(a.startsWith("echo ")){
                 System.out.println(a.substring(5));
             }
