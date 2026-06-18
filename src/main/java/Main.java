@@ -106,6 +106,10 @@ public class Main {
             }
 
             try {
+                if (cmd.equals("jobs")) {
+                    continue;
+                }
+
                 if (cmd.equals("pwd")) {
                     System.out.println(System.getProperty("user.dir"));
                     continue;
@@ -156,7 +160,7 @@ public class Main {
                 if (cmd.equals("type")) {
                     String targetCmd = parsedArgs.size() > 1 ? parsedArgs.get(1) : "";
 
-                    if (targetCmd.equals("echo") || targetCmd.equals("exit") || targetCmd.equals("type") || targetCmd.equals("pwd") || targetCmd.equals("cd")) {
+                    if (targetCmd.equals("echo") || targetCmd.equals("exit") || targetCmd.equals("type") || targetCmd.equals("pwd") || targetCmd.equals("cd") || targetCmd.equals("jobs")) {
                         System.out.println(targetCmd + " is a shell builtin");
                         continue;
                     }
