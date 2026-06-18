@@ -133,8 +133,16 @@ public class Main {
 
             try {
                 if (cmd.equals("jobs")) {
-                    for (Job job : activeJobs) {
-                        System.out.printf("[%d]+  %-24s%s\n", job.id, job.status, job.command);
+                    int size = activeJobs.size();
+                    for (int i = 0; i < size; i++) {
+                        Job job = activeJobs.get(i);
+                        char marker = ' ';
+                        if (i == size - 1) {
+                            marker = '+';
+                        } else if (i == size - 2) {
+                            marker = '-';
+                        }
+                        System.out.printf("[%d]%c  %-24s%s\n", job.id, marker, job.status, job.command);
                     }
                     continue;
                 }
