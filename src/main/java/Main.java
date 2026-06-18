@@ -62,6 +62,98 @@ public class Main {
 
             String cmd = parsedArgs.get(0);
 
+            boolean hasPipeline = false;
+            for (String arg : parsedArgs) {
+                if (arg.equals("|")) {
+                    hasPipeline = true;
+                    break;
+                }
+            }
+
+            if (hasPipeline) {
+                try {
+                    List<String> cmd1Args = new ArrayList<>();
+                    List<String> cmd2Args = new ArrayList<>();
+                    boolean passedPipe = false;
+
+                    for (String arg : parsedArgs) {
+                        if (arg.equals("|")) {
+                            passedPipe = true;
+                            continue;
+                        }
+                        if (!passedPipe) {
+                            cmd1Args.add(arg);
+                        } else {
+                            cmd2Args.add(arg);
+                        }
+                    }
+
+                    ProcessBuilder pb1 = new ProcessBuilder(cmd1Args);
+                    ProcessBuilder pb2 = new ProcessBuilder(cmd2Args);
+
+                    pb1.redirectInput(ProcessBuilder.Redirect.INHERIT);
+                    pb1.redirectError(ProcessBuilder.Redirect.INHERIT);
+                    pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+                    pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
+
+                    Process p1 = pb1.start();
+                    Process p2 = pb2.start();
+
+                    java.io.InputStream in = p1.getInputStream();
+                    java.io.OutputStream out = p2.getOutputStream();
+
+                    Thread pipeThread = new Thread(() -> {
+                        byte[] buffer = new byte[4048];
+                        int bytesRead;
+                        try {
+                            while ((bytesRead = in.read(buffer)) != -1) {
+                                out.write(buffer, 0, bytesRead);
+                                out.flush();
+                            }
+                        } catch (Exception e) {
+                        } finally {
+                            try { out.close(); } catch (Exception e) {}
+                            try { in.close(); } catch (Exception e) {}
+                        }
+                    });
+                    pipeThread.start();
+
+                    if (isBackground) {
+                        int assignedJobId = 1;
+                        while (true) {
+                            boolean idTaken = false;
+                            for (Job job : activeJobs) {
+                                if (job.id == assignedJobId) {
+                                    idTaken = true;
+                                    break;
+                                }
+                            }
+                            if (!idTaken) {
+                                break;
+                            }
+                            assignedJobId++;
+                        }
+                        System.out.println("[" + assignedJobId + "] " + p2.pid());
+                        int insertionIndex = 0;
+                        while (insertionIndex < activeJobs.size() && activeJobs.get(insertionIndex).id < assignedJobId) {
+                            insertionIndex++;
+                        }
+                        activeJobs.add(insertionIndex, new Job(assignedJobId, p2.pid(), input, "Running", p2));
+                    } else {
+                        p2.waitFor();
+                        p1.destroy();
+                    }
+
+                } catch (Exception e) {
+                    System.err.println("Error executing pipeline");
+                }
+
+                if (!cmd.equals("jobs")) {
+                    reapJobsBeforePrompt(activeJobs);
+                }
+                continue;
+            }
+
             String redirectFile = null;
             String redirectErrFile = null;
             boolean appendOut = false;
