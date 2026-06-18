@@ -153,7 +153,7 @@ public class Main {
 
     /**
      * Parses the command line input into a list of arguments.
-     * Treats backslashes inside single quotes as literal characters.
+     * Implements conditional backslash escaping inside double quotes.
      */
     private static List<String> parseArguments(String input) {
         List<String> tokens = new ArrayList<>();
@@ -165,7 +165,7 @@ public class Main {
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
-            // Handle backslash outside of ALL quotes
+            // 1. Handle backslash outside of ALL quotes
             if (c == '\\' && !inSingleQuotes && !inDoubleQuotes) {
                 if (i + 1 < input.length()) {
                     currentToken.append(input.charAt(i + 1));
@@ -176,22 +176,39 @@ public class Main {
                     contentAdded = true;
                 }
             } 
-            // Toggle single quotes (only if not in double quotes)
+            // 2. Handle backslash INSIDE double quotes (Selective Escaping)
+            else if (c == '\\' && inDoubleQuotes) {
+                if (i + 1 < input.length()) {
+                    char next = input.charAt(i + 1);
+                    if (next == '"' || next == '\\' || next == '$' || next == '`') {
+                        // It's a special character! Drop the backslash, keep the literal next character
+                        currentToken.append(next);
+                        i++;
+                    } else {
+                        // Not a special character! Treat the backslash literally
+                        currentToken.append(c);
+                    }
+                    contentAdded = true;
+                } else {
+                    currentToken.append(c);
+                    contentAdded = true;
+                }
+            }
+            // 3. Toggle single quotes (only if not in double quotes)
             else if (c == '\'' && !inDoubleQuotes) {
                 inSingleQuotes = !inSingleQuotes;
                 contentAdded = true;
             } 
-            // Toggle double quotes (only if not in single quotes)
+            // 4. Toggle double quotes (only if not in single quotes)
             else if (c == '"' && !inSingleQuotes) {
                 inDoubleQuotes = !inDoubleQuotes;
                 contentAdded = true;
             } 
-            // Characters inside active quotes are added directly
-            // This ensures backslashes inside single quotes are kept raw and literal
+            // 5. Characters inside active single or double quotes are added directly
             else if (inSingleQuotes || inDoubleQuotes) {
                 currentToken.append(c);
             } 
-            // Normal characters outside of quotes
+            // 6. Normal characters outside of quotes
             else {
                 if (Character.isWhitespace(c)) {
                     if (currentToken.length() > 0 || contentAdded) {
