@@ -62,6 +62,7 @@ public class Main {
 
             String cmd = parsedArgs.get(0);
 
+            // Check for any pipeline characters
             boolean hasPipeline = false;
             for (String arg : parsedArgs) {
                 if (arg.equals("|")) {
@@ -72,123 +73,153 @@ public class Main {
 
             if (hasPipeline) {
                 try {
-                    List<String> cmd1Args = new ArrayList<>();
-                    List<String> cmd2Args = new ArrayList<>();
-                    boolean passedPipe = false;
-
+                    // Group arguments into individual command stages split by "|"
+                    List<List<String>> stages = new ArrayList<>();
+                    List<String> currentStage = new ArrayList<>();
                     for (String arg : parsedArgs) {
                         if (arg.equals("|")) {
-                            passedPipe = true;
-                            continue;
-                        }
-                        if (!passedPipe) {
-                            cmd1Args.add(arg);
+                            stages.add(currentStage);
+                            currentStage = new ArrayList<>();
                         } else {
-                            cmd2Args.add(arg);
+                            currentStage.add(arg);
                         }
                     }
+                    stages.add(currentStage);
 
-                    java.io.PipedOutputStream pipeOut = new java.io.PipedOutputStream();
-                    java.io.PipedInputStream pipeIn = new java.io.PipedInputStream(pipeOut);
-
+                    java.io.InputStream currentIn = System.in;
                     java.io.PrintStream originalOut = System.out;
                     java.io.InputStream originalIn = System.in;
 
-                    Thread stage1Thread = new Thread(() -> {
-                        try (java.io.PrintStream tempOut = new java.io.PrintStream(pipeOut, true)) {
-                            System.setOut(tempOut);
-                            
-                            String cmd1 = cmd1Args.get(0);
-                            if (isBuiltin(cmd1)) {
-                                executeBuiltin(cmd1, cmd1Args, activeJobs);
-                            } else {
-                                ProcessBuilder pb1 = new ProcessBuilder(cmd1Args);
-                                pb1.redirectInput(ProcessBuilder.Redirect.INHERIT);
-                                pb1.redirectError(ProcessBuilder.Redirect.INHERIT);
-                                Process p1 = pb1.start();
-                                
-                                try (java.io.InputStream p1In = p1.getInputStream()) {
-                                    byte[] buffer = new byte[4096];
-                                    int read;
-                                    while ((read = p1In.read(buffer)) != -1) {
-                                        pipeOut.write(buffer, 0, read);
-                                        pipeOut.flush();
-                                    }
-                                }
-                                p1.waitFor();
-                            }
-                        } catch (Exception e) {
-                        } finally {
-                            try { pipeOut.close(); } catch (Exception e) {}
+                    List<Thread> activeThreads = new ArrayList<>();
+                    Process lastProcess = null;
+
+                    // Iterate and chain each parsed command segment 
+                    for (int i = 0; i < stages.size(); i++) {
+                        List<String> stageArgs = stages.get(i);
+                        boolean isLastStage = (i == stages.size() - 1);
+
+                        java.io.PipedOutputStream stageOut = null;
+                        java.io.PipedInputStream nextIn = null;
+
+                        if (!isLastStage) {
+                            stageOut = new java.io.PipedOutputStream();
+                            nextIn = new java.io.PipedInputStream(stageOut);
                         }
-                    });
 
-                    stage1Thread.start();
+                        final java.io.InputStream stageInputChannel = currentIn;
+                        final java.io.PipedOutputStream stageOutputChannel = stageOut;
 
-                    String cmd2 = cmd2Args.get(0);
-                    if (isBuiltin(cmd2)) {
-                        System.setIn(pipeIn);
-                        executeBuiltin(cmd2, cmd2Args, activeJobs);
-                        
-                        System.setIn(originalIn);
-                        System.setOut(originalOut);
-                        
-                        stage1Thread.join();
-                        try { pipeIn.close(); } catch (Exception e) {}
-                    } else {
-                        ProcessBuilder pb2 = new ProcessBuilder(cmd2Args);
-                        pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-                        pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
-                        Process p2 = pb2.start();
-
-                        Thread feederThread = new Thread(() -> {
-                            try (java.io.OutputStream p2Out = p2.getOutputStream()) {
-                                byte[] buffer = new byte[4096];
-                                int read;
-                                while ((read = pipeIn.read(buffer)) != -1) {
-                                    p2Out.write(buffer, 0, read);
-                                    p2Out.flush();
-                                }
-                            } catch (Exception e) {
-                            } finally {
-                                try { pipeIn.close(); } catch (Exception e) {}
-                            }
-                        });
-                        feederThread.start();
-
-                        System.setIn(originalIn);
-                        System.setOut(originalOut);
-
-                        if (isBackground) {
-                            int assignedJobId = 1;
-                            while (true) {
-                                boolean idTaken = false;
-                                for (Job job : activeJobs) {
-                                    if (job.id == assignedJobId) {
-                                        idTaken = true;
-                                        break;
+                        if (isBuiltin(stageArgs.get(0))) {
+                            Thread builtinThread = new Thread(() -> {
+                                try {
+                                    if (stageInputChannel != System.in) {
+                                        System.setIn(stageInputChannel);
                                     }
+                                    if (!isLastStage) {
+                                        java.io.PrintStream tempOut = new java.io.PrintStream(stageOutputChannel, true);
+                                        System.setOut(tempOut);
+                                    } else {
+                                        System.setOut(originalOut);
+                                    }
+                                    executeBuiltin(stageArgs.get(0), stageArgs, activeJobs);
+                                } catch (Exception e) {
+                                } finally {
+                                    try { if (stageOutputChannel != null) stageOutputChannel.close(); } catch (Exception e) {}
+                                    try { if (stageInputChannel != System.in) stageInputChannel.close(); } catch (Exception e) {}
                                 }
-                                if (!idTaken) {
+                            });
+                            activeThreads.add(builtinThread);
+                            builtinThread.start();
+                        } else {
+                            // External Binary execution processing
+                            ProcessBuilder pb = new ProcessBuilder(stageArgs);
+                            if (stageInputChannel == System.in) {
+                                pb.redirectInput(ProcessBuilder.Redirect.INHERIT);
+                            }
+                            if (isLastStage) {
+                                pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+                            }
+                            pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+
+                            Process p = pb.start();
+                            if (isLastStage) {
+                                lastProcess = p;
+                            }
+
+                            // Thread responsible for shifting data down to standard process streams
+                            if (stageInputChannel != System.in) {
+                                Thread inputFeeder = new Thread(() -> {
+                                    try (java.io.OutputStream pOut = p.getOutputStream();
+                                         java.io.InputStream sourceIn = stageInputChannel) {
+                                        byte[] buffer = new byte[4096];
+                                        int read;
+                                        while ((read = sourceIn.read(buffer)) != -1) {
+                                            pOut.write(buffer, 0, read);
+                                            pOut.flush();
+                                        }
+                                    } catch (Exception e) {}
+                                });
+                                activeThreads.add(inputFeeder);
+                                inputFeeder.start();
+                            }
+
+                            // Thread responsible for lifting output data out to downstream buffers
+                            if (!isLastStage) {
+                                Thread outputExtractor = new Thread(() -> {
+                                    try (java.io.InputStream pIn = p.getInputStream();
+                                         java.io.PipedOutputStream targetOut = stageOutputChannel) {
+                                        byte[] buffer = new byte[4096];
+                                        int read;
+                                        while ((read = pIn.read(buffer)) != -1) {
+                                            targetOut.write(buffer, 0, read);
+                                            targetOut.flush();
+                                        }
+                                    } catch (Exception e) {}
+                                });
+                                activeThreads.add(outputExtractor);
+                                outputExtractor.start();
+                            }
+                        }
+
+                        currentIn = nextIn;
+                    }
+
+                    // Reset default global environmental channels safe keeping hooks
+                    System.setIn(originalIn);
+                    System.setOut(originalOut);
+
+                    if (isBackground && lastProcess != null) {
+                        int assignedJobId = 1;
+                        while (true) {
+                            boolean idTaken = false;
+                            for (Job job : activeJobs) {
+                                if (job.id == assignedJobId) {
+                                    idTaken = true;
                                     break;
                                 }
-                                assignedJobId++;
                             }
-                            System.out.println("[" + assignedJobId + "] " + p2.pid());
-                            int insertionIndex = 0;
-                            while (insertionIndex < activeJobs.size() && activeJobs.get(insertionIndex).id < assignedJobId) {
-                                insertionIndex++;
+                            if (!idTaken) {
+                                break;
                             }
-                            activeJobs.add(insertionIndex, new Job(assignedJobId, p2.pid(), input, "Running", p2));
-                        } else {
-                            p2.waitFor();
-                            stage1Thread.join();
-                            feederThread.join();
+                            assignedJobId++;
+                        }
+                        System.out.println("[" + assignedJobId + "] " + lastProcess.pid());
+                        int insertionIndex = 0;
+                        while (insertionIndex < activeJobs.size() && activeJobs.get(insertionIndex).id < assignedJobId) {
+                            insertionIndex++;
+                        }
+                        activeJobs.add(insertionIndex, new Job(assignedJobId, lastProcess.pid(), input, "Running", lastProcess));
+                    } else {
+                        if (lastProcess != null) {
+                            lastProcess.waitFor();
+                        }
+                        for (Thread t : activeThreads) {
+                            t.join();
                         }
                     }
 
                 } catch (Exception e) {
-                    System.err.println("Error executing pipeline");
+                    System.err.println("Error executing multi-stage pipeline");
                 }
 
                 if (!cmd.equals("jobs")) {
