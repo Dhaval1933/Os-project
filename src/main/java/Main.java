@@ -30,6 +30,8 @@ public class Main {
 
         while (true) {
 
+            reapJobs(activeJobs);
+
             System.out.print("$ ");
             System.out.flush();
 
@@ -135,9 +137,8 @@ public class Main {
 
             try {
                 if (cmd.equals("jobs")) {
+                    reapJobs(activeJobs);
                     int size = activeJobs.size();
-                    List<Job> toRemove = new ArrayList<>();
-
                     for (int i = 0; i < size; i++) {
                         Job job = activeJobs.get(i);
                         char marker = ' ';
@@ -146,24 +147,8 @@ public class Main {
                         } else if (i == size - 2) {
                             marker = '-';
                         }
-
-                        if (!job.process.isAlive()) {
-                            job.status = "Done";
-                        }
-
-                        String displayCmd = job.command;
-                        if (job.status.equals("Done") && displayCmd.endsWith(" &")) {
-                            displayCmd = displayCmd.substring(0, displayCmd.length() - 2);
-                        }
-
-                        System.out.printf("[%d]%c  %-24s%s\n", job.id, marker, job.status, displayCmd);
-
-                        if (job.status.equals("Done")) {
-                            toRemove.add(job);
-                        }
+                        System.out.printf("[%d]%c  %-24s%s\n", job.id, marker, job.status, job.command);
                     }
-
-                    activeJobs.removeAll(toRemove);
                     continue;
                 }
 
@@ -324,6 +309,32 @@ public class Main {
         }
 
         scanner.close();
+    }
+
+    private static void reapJobs(List<Job> activeJobs) {
+        int size = activeJobs.size();
+        List<Job> toRemove = new ArrayList<>();
+
+        for (int i = 0; i < size; i++) {
+            Job job = activeJobs.get(i);
+            char marker = ' ';
+            if (i == size - 1) {
+                marker = '+';
+            } else if (i == size - 2) {
+                marker = '-';
+            }
+
+            if (!job.process.isAlive() && job.status.equals("Running")) {
+                job.status = "Done";
+                String displayCmd = job.command;
+                if (displayCmd.endsWith(" &")) {
+                    displayCmd = displayCmd.substring(0, displayCmd.length() - 2);
+                }
+                System.out.printf("[%d]%c  %-24s%s\n", job.id, marker, job.status, displayCmd);
+                toRemove.add(job);
+            }
+        }
+        activeJobs.removeAll(toRemove);
     }
 
     private static List<String> parseArguments(String input) {
