@@ -95,9 +95,7 @@ public class Main {
                     java.io.InputStream originalIn = System.in;
 
                     Thread stage1Thread = new Thread(() -> {
-                        java.io.PrintStream tempOut = null;
-                        try {
-                            tempOut = new java.io.PrintStream(pipeOut, true);
+                        try (java.io.PrintStream tempOut = new java.io.PrintStream(pipeOut, true)) {
                             System.setOut(tempOut);
                             
                             String cmd1 = cmd1Args.get(0);
@@ -109,18 +107,18 @@ public class Main {
                                 pb1.redirectError(ProcessBuilder.Redirect.INHERIT);
                                 Process p1 = pb1.start();
                                 
-                                java.io.InputStream p1In = p1.getInputStream();
-                                byte[] buffer = new byte[4096];
-                                int read;
-                                while ((read = p1In.read(buffer)) != -1) {
-                                    pipeOut.write(buffer, 0, read);
-                                    pipeOut.flush();
+                                try (java.io.InputStream p1In = p1.getInputStream()) {
+                                    byte[] buffer = new byte[4096];
+                                    int read;
+                                    while ((read = p1In.read(buffer)) != -1) {
+                                        pipeOut.write(buffer, 0, read);
+                                        pipeOut.flush();
+                                    }
                                 }
                                 p1.waitFor();
                             }
                         } catch (Exception e) {
                         } finally {
-                            if (tempOut != null) tempOut.close();
                             try { pipeOut.close(); } catch (Exception e) {}
                         }
                     });
@@ -131,32 +129,35 @@ public class Main {
                     if (isBuiltin(cmd2)) {
                         System.setIn(pipeIn);
                         executeBuiltin(cmd2, cmd2Args, activeJobs);
+                        
                         System.setIn(originalIn);
                         System.setOut(originalOut);
+                        
                         stage1Thread.join();
+                        try { pipeIn.close(); } catch (Exception e) {}
                     } else {
                         ProcessBuilder pb2 = new ProcessBuilder(cmd2Args);
                         pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                         pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
                         Process p2 = pb2.start();
 
-                        java.io.OutputStream p2Out = p2.getOutputStream();
-                        
                         Thread feederThread = new Thread(() -> {
-                            byte[] buffer = new byte[4096];
-                            int read;
-                            try {
+                            try (java.io.OutputStream p2Out = p2.getOutputStream()) {
+                                byte[] buffer = new byte[4096];
+                                int read;
                                 while ((read = pipeIn.read(buffer)) != -1) {
-                                    p2.getOutputStream().write(buffer, 0, read);
-                                    p2.getOutputStream().flush();
+                                    p2Out.write(buffer, 0, read);
+                                    p2Out.flush();
                                 }
                             } catch (Exception e) {
                             } finally {
-                                try { p2Out.close(); } catch (Exception e) {}
                                 try { pipeIn.close(); } catch (Exception e) {}
                             }
                         });
                         feederThread.start();
+
+                        System.setIn(originalIn);
+                        System.setOut(originalOut);
 
                         if (isBackground) {
                             int assignedJobId = 1;
