@@ -11,12 +11,14 @@ public class Main {
         long pid;
         String command;
         String status;
+        Process process;
 
-        Job(int id, long pid, String command, String status) {
+        Job(int id, long pid, String command, String status, Process process) {
             this.id = id;
             this.pid = pid;
             this.command = command;
             this.status = status;
+            this.process = process;
         }
     }
 
@@ -134,6 +136,8 @@ public class Main {
             try {
                 if (cmd.equals("jobs")) {
                     int size = activeJobs.size();
+                    List<Job> toRemove = new ArrayList<>();
+
                     for (int i = 0; i < size; i++) {
                         Job job = activeJobs.get(i);
                         char marker = ' ';
@@ -142,8 +146,24 @@ public class Main {
                         } else if (i == size - 2) {
                             marker = '-';
                         }
-                        System.out.printf("[%d]%c  %-24s%s\n", job.id, marker, job.status, job.command);
+
+                        if (!job.process.isAlive()) {
+                            job.status = "Done";
+                        }
+
+                        String displayCmd = job.command;
+                        if (job.status.equals("Done") && displayCmd.endsWith(" &")) {
+                            displayCmd = displayCmd.substring(0, displayCmd.length() - 2);
+                        }
+
+                        System.out.printf("[%d]%c  %-24s%s\n", job.id, marker, job.status, displayCmd);
+
+                        if (job.status.equals("Done")) {
+                            toRemove.add(job);
+                        }
                     }
+
+                    activeJobs.removeAll(toRemove);
                     continue;
                 }
 
@@ -279,7 +299,7 @@ public class Main {
                         long pid = process.pid();
                         originalOut.println("[" + jobCounter + "] " + pid);
                         String rawCommand = input;
-                        activeJobs.add(new Job(jobCounter, pid, rawCommand, "Running"));
+                        activeJobs.add(new Job(jobCounter, pid, rawCommand, "Running", process));
                         jobCounter++;
                     } else {
                         process.waitFor();
