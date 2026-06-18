@@ -30,7 +30,7 @@ public class Main {
 
         while (true) {
 
-            reapJobs(activeJobs);
+            reapJobsBeforePrompt(activeJobs);
 
             System.out.print("$ ");
             System.out.flush();
@@ -137,8 +137,15 @@ public class Main {
 
             try {
                 if (cmd.equals("jobs")) {
-                    reapJobs(activeJobs);
                     int size = activeJobs.size();
+                    for (int i = 0; i < size; i++) {
+                        Job job = activeJobs.get(i);
+                        if (!job.process.isAlive()) {
+                            job.status = "Done";
+                        }
+                    }
+
+                    List<Job> toRemove = new ArrayList<>();
                     for (int i = 0; i < size; i++) {
                         Job job = activeJobs.get(i);
                         char marker = ' ';
@@ -147,8 +154,19 @@ public class Main {
                         } else if (i == size - 2) {
                             marker = '-';
                         }
-                        System.out.printf("[%d]%c  %-24s%s\n", job.id, marker, job.status, job.command);
+
+                        String displayCmd = job.command;
+                        if (job.status.equals("Done") && displayCmd.endsWith(" &")) {
+                            displayCmd = displayCmd.substring(0, displayCmd.length() - 2);
+                        }
+
+                        System.out.printf("[%d]%c  %-24s%s\n", job.id, marker, job.status, displayCmd);
+
+                        if (job.status.equals("Done")) {
+                            toRemove.add(job);
+                        }
                     }
+                    activeJobs.removeAll(toRemove);
                     continue;
                 }
 
@@ -311,7 +329,7 @@ public class Main {
         scanner.close();
     }
 
-    private static void reapJobs(List<Job> activeJobs) {
+    private static void reapJobsBeforePrompt(List<Job> activeJobs) {
         int size = activeJobs.size();
         List<Job> toRemove = new ArrayList<>();
 
