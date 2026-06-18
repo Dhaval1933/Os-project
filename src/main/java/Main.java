@@ -24,7 +24,7 @@ public class Main {
                 break;
             }
 
-            // Parse the input into arguments handling single and double quotes
+            // Parse the input into arguments handling single quotes, double quotes, and backslashes
             List<String> parsedArgs = parseArguments(input);
             if (parsedArgs.isEmpty()) {
                 continue;
@@ -153,33 +153,49 @@ public class Main {
 
     /**
      * Parses the command line input into a list of arguments.
-     * Supports single quotes, double quotes, preservation of spaces, and concatenation.
+     * Supports single quotes, double quotes, backslash escaping outside quotes, and concatenation.
      */
     private static List<String> parseArguments(String input) {
         List<String> tokens = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
         boolean inSingleQuotes = false;
         boolean inDoubleQuotes = false;
-        boolean contentAdded = false; // Ensures empty quotes like "" create an argument state
+        boolean contentAdded = false;
 
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
-            if (c == '\'' && !inDoubleQuotes) {
-                // Toggle single quotes only if we are not inside double quotes
+            // Handle backslash outside of any quotes
+            if (c == '\\' && !inSingleQuotes && !inDoubleQuotes) {
+                if (i + 1 < input.length()) {
+                    // Peek at the next character and consume it literally
+                    currentToken.append(input.charAt(i + 1));
+                    i++; // Skip processing the escaped character in the main loop
+                    contentAdded = true;
+                } else {
+                    // Trailing backslash at the very end of input
+                    currentToken.append(c);
+                    contentAdded = true;
+                }
+            } 
+            // Toggle single quotes (only if not in double quotes)
+            else if (c == '\'' && !inDoubleQuotes) {
                 inSingleQuotes = !inSingleQuotes;
                 contentAdded = true;
-            } else if (c == '"' && !inSingleQuotes) {
-                // Toggle double quotes only if we are not inside single quotes
+            } 
+            // Toggle double quotes (only if not in single quotes)
+            else if (c == '"' && !inSingleQuotes) {
                 inDoubleQuotes = !inDoubleQuotes;
                 contentAdded = true;
-            } else if (inSingleQuotes || inDoubleQuotes) {
-                // Inside any quotes, characters are preserved literally
+            } 
+            // Characters inside active quotes are added directly
+            else if (inSingleQuotes || inDoubleQuotes) {
                 currentToken.append(c);
-            } else {
-                // Outside all quotes
+            } 
+            // Normal characters outside of quotes
+            else {
                 if (Character.isWhitespace(c)) {
-                    // Spaces outside quotes finalize the current token
+                    // White spaces act as delimiters outside quotes
                     if (currentToken.length() > 0 || contentAdded) {
                         tokens.add(currentToken.toString());
                         currentToken.setLength(0);
@@ -191,7 +207,7 @@ public class Main {
             }
         }
 
-        // Catch the trailing token if present
+        // Add the last remaining token if it exists
         if (currentToken.length() > 0 || contentAdded) {
             tokens.add(currentToken.toString());
         }
