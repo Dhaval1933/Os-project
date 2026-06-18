@@ -24,17 +24,14 @@ public class Main {
                 break;
             }
 
-            // Parse the input into arguments handling single quotes, double quotes, and backslashes
             List<String> parsedArgs = parseArguments(input);
             if (parsedArgs.isEmpty()) {
                 continue;
             }
 
-            // Handle Output Redirection (> or 1>)
             String redirectFile = null;
             int redirectIndex = -1;
 
-            // Search backward to grab the last redirection operator if multiple exist
             for (int i = parsedArgs.size() - 2; i >= 0; i--) {
                 String arg = parsedArgs.get(i);
                 if (arg.equals(">") || arg.equals("1>")) {
@@ -44,9 +41,7 @@ public class Main {
                 }
             }
 
-            // If a redirection operator was found, trim the redirection parts away from the command execution
             if (redirectIndex != -1) {
-                // Remove the filename first, then the operator
                 parsedArgs.remove(redirectIndex + 1);
                 parsedArgs.remove(redirectIndex);
             }
@@ -57,14 +52,12 @@ public class Main {
 
             String cmd = parsedArgs.get(0);
 
-            // Create an alternative output wrapper to handle built-in commands output redirection
             java.io.PrintStream originalOut = System.out;
             java.io.PrintStream fileOut = null;
 
             if (redirectFile != null) {
                 try {
                     File outFile = new File(redirectFile);
-                    // Ensure parent directories exist if applicable
                     if (outFile.getParentFile() != null) {
                         outFile.getParentFile().mkdirs();
                     }
@@ -157,7 +150,6 @@ public class Main {
                     continue;
                 }
 
-                // External Command handling (e.g., cat, ls)
                 String pathEnv = System.getenv("PATH");
                 String found = null;
 
@@ -180,14 +172,10 @@ public class Main {
                 }
 
                 try {
-                    parsedArgs.set(0, found);
-
                     ProcessBuilder pb = new ProcessBuilder(parsedArgs);
                     
                     if (redirectFile != null) {
-                        // Redirect standard output to the specified file
                         pb.redirectOutput(new File(redirectFile));
-                        // Crucial: Let standard error inherit the main terminal IO so errors aren't eaten!
                         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
                         pb.redirectInput(ProcessBuilder.Redirect.INHERIT);
                     } else {
@@ -201,8 +189,7 @@ public class Main {
                     originalOut.println("Error executing command");
                 }
 
-            } finally {
-                // Restore standard output stream system hook back to terminal tracking
+            } nullify {
                 if (fileOut != null) {
                     fileOut.close();
                     System.setOut(originalOut);
@@ -214,10 +201,6 @@ public class Main {
         scanner.close();
     }
 
-    /**
-     * Parses the command line input into a list of arguments.
-     * Tokens like > or 1> will form individual list items if they are unquoted.
-     */
     private static List<String> parseArguments(String input) {
         List<String> tokens = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
@@ -228,7 +211,6 @@ public class Main {
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
-            // 1. Handle backslash outside of ALL quotes
             if (c == '\\' && !inSingleQuotes && !inDoubleQuotes) {
                 if (i + 1 < input.length()) {
                     currentToken.append(input.charAt(i + 1));
@@ -239,7 +221,6 @@ public class Main {
                     contentAdded = true;
                 }
             } 
-            // 2. Handle backslash INSIDE double quotes (Selective Escaping)
             else if (c == '\\' && inDoubleQuotes) {
                 if (i + 1 < input.length()) {
                     char next = input.charAt(i + 1);
@@ -255,21 +236,17 @@ public class Main {
                     contentAdded = true;
                 }
             }
-            // 3. Toggle single quotes (only if not in double quotes)
             else if (c == '\'' && !inDoubleQuotes) {
                 inSingleQuotes = !inSingleQuotes;
                 contentAdded = true;
             } 
-            // 4. Toggle double quotes (only if not in single quotes)
             else if (c == '"' && !inSingleQuotes) {
                 inDoubleQuotes = !inDoubleQuotes;
                 contentAdded = true;
             } 
-            // 5. Characters inside active single or double quotes are added directly
             else if (inSingleQuotes || inDoubleQuotes) {
                 currentToken.append(c);
             } 
-            // 6. Normal characters outside of quotes
             else {
                 if (Character.isWhitespace(c)) {
                     if (currentToken.length() > 0 || contentAdded) {
