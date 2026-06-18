@@ -26,7 +26,6 @@ public class Main {
 
         Scanner scanner = new Scanner(System.in);
         List<Job> activeJobs = new ArrayList<>();
-        int jobCounter = 1;
 
         while (true) {
 
@@ -299,11 +298,30 @@ public class Main {
                     Process process = pb.start();
 
                     if (isBackground) {
+                        int assignedJobId = 1;
+                        while (true) {
+                            boolean idTaken = false;
+                            for (Job job : activeJobs) {
+                                if (job.id == assignedJobId) {
+                                    idTaken = true;
+                                    break;
+                                }
+                            }
+                            if (!idTaken) {
+                                break;
+                            }
+                            assignedJobId++;
+                        }
+
                         long pid = process.pid();
-                        originalOut.println("[" + jobCounter + "] " + pid);
+                        originalOut.println("[" + assignedJobId + "] " + pid);
                         String rawCommand = input;
-                        activeJobs.add(new Job(jobCounter, pid, rawCommand, "Running", process));
-                        jobCounter++;
+                        
+                        int insertionIndex = 0;
+                        while (insertionIndex < activeJobs.size() && activeJobs.get(insertionIndex).id < assignedJobId) {
+                            insertionIndex++;
+                        }
+                        activeJobs.add(insertionIndex, new Job(assignedJobId, pid, rawCommand, "Running", process));
                     } else {
                         process.waitFor();
                     }
