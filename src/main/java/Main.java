@@ -189,7 +189,7 @@ public class Main {
                     originalOut.println("Error executing command");
                 }
 
-            } nullify {
+            } finally {
                 if (fileOut != null) {
                     fileOut.close();
                     System.setOut(originalOut);
