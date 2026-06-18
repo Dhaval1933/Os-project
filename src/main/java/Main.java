@@ -24,7 +24,7 @@ public class Main {
                 break;
             }
 
-            // Parse the input into arguments handling single quotes
+            // Parse the input into arguments handling single and double quotes
             List<String> parsedArgs = parseArguments(input);
             if (parsedArgs.isEmpty()) {
                 continue;
@@ -113,7 +113,7 @@ public class Main {
                 continue;
             }
 
-            // External Command handling
+            // External Command handling (e.g., cat)
             String pathEnv = System.getenv("PATH");
             String found = null;
 
@@ -141,8 +141,6 @@ public class Main {
 
                 Process process = pb.start();
                 process.waitFor();
-
-                // If the system output stream was modified by inheritIO, restore terminal sync 
                 System.out.flush();
 
             } catch (Exception e) {
@@ -155,27 +153,33 @@ public class Main {
 
     /**
      * Parses the command line input into a list of arguments.
-     * Handles single quotes, preservation of internal spaces, and concatenation.
+     * Supports single quotes, double quotes, preservation of spaces, and concatenation.
      */
     private static List<String> parseArguments(String input) {
         List<String> tokens = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
         boolean inSingleQuotes = false;
-        boolean contentAdded = false; // Tracks if we encountered text/empty quotes to form an argument
+        boolean inDoubleQuotes = false;
+        boolean contentAdded = false; // Ensures empty quotes like "" create an argument state
 
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
-            if (c == '\'') {
+            if (c == '\'' && !inDoubleQuotes) {
+                // Toggle single quotes only if we are not inside double quotes
                 inSingleQuotes = !inSingleQuotes;
-                contentAdded = true; // Handles empty quotes like hello''world or just ''
-            } else if (inSingleQuotes) {
-                // Inside quotes, everything is literal
+                contentAdded = true;
+            } else if (c == '"' && !inSingleQuotes) {
+                // Toggle double quotes only if we are not inside single quotes
+                inDoubleQuotes = !inDoubleQuotes;
+                contentAdded = true;
+            } else if (inSingleQuotes || inDoubleQuotes) {
+                // Inside any quotes, characters are preserved literally
                 currentToken.append(c);
             } else {
-                // Outside quotes
+                // Outside all quotes
                 if (Character.isWhitespace(c)) {
-                    // Spaces outside quotes act as delimiters
+                    // Spaces outside quotes finalize the current token
                     if (currentToken.length() > 0 || contentAdded) {
                         tokens.add(currentToken.toString());
                         currentToken.setLength(0);
@@ -187,7 +191,7 @@ public class Main {
             }
         }
 
-        // Add the last token if exists
+        // Catch the trailing token if present
         if (currentToken.length() > 0 || contentAdded) {
             tokens.add(currentToken.toString());
         }
