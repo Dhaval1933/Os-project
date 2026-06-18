@@ -29,14 +29,13 @@ public class Main {
 
         while (true) {
 
-            reapJobsBeforePrompt(activeJobs);
-
             System.out.print("$ ");
             System.out.flush();
 
             String input = scanner.nextLine().trim();
 
             if (input.isEmpty()) {
+                reapJobsBeforePrompt(activeJobs);
                 continue;
             }
 
@@ -46,6 +45,7 @@ public class Main {
 
             List<String> parsedArgs = parseArguments(input);
             if (parsedArgs.isEmpty()) {
+                reapJobsBeforePrompt(activeJobs);
                 continue;
             }
 
@@ -56,7 +56,14 @@ public class Main {
             }
 
             if (parsedArgs.isEmpty()) {
+                reapJobsBeforePrompt(activeJobs);
                 continue;
+            }
+
+            String cmd = parsedArgs.get(0);
+
+            if (!cmd.equals("jobs")) {
+                reapJobsBeforePrompt(activeJobs);
             }
 
             String redirectFile = null;
@@ -98,8 +105,6 @@ public class Main {
             if (parsedArgs.isEmpty()) {
                 continue;
             }
-
-            String cmd = parsedArgs.get(0);
 
             java.io.PrintStream originalOut = System.out;
             java.io.PrintStream originalErr = System.err;
@@ -343,8 +348,6 @@ public class Main {
                 System.err.flush();
             }
         }
-
-        scanner.close();
     }
 
     private static void reapJobsBeforePrompt(List<Job> activeJobs) {
