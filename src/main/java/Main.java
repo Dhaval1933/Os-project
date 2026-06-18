@@ -1,4 +1,5 @@
 import java.io.File;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -31,6 +32,7 @@ public class Main {
 
             String redirectFile = null;
             String redirectErrFile = null;
+            boolean appendOut = false;
             int redirectIndex = -1;
 
             for (int i = parsedArgs.size() - 2; i >= 0; i--) {
@@ -38,6 +40,12 @@ public class Main {
                 if (arg.equals(">") || arg.equals("1>")) {
                     redirectIndex = i;
                     redirectFile = parsedArgs.get(i + 1);
+                    appendOut = false;
+                    break;
+                } else if (arg.equals(">>") || arg.equals("1>>")) {
+                    redirectIndex = i;
+                    redirectFile = parsedArgs.get(i + 1);
+                    appendOut = true;
                     break;
                 } else if (arg.equals("2>")) {
                     redirectIndex = i;
@@ -68,7 +76,7 @@ public class Main {
                     if (outFile.getParentFile() != null) {
                         outFile.getParentFile().mkdirs();
                     }
-                    fileOut = new java.io.PrintStream(outFile);
+                    fileOut = new java.io.PrintStream(new FileOutputStream(outFile, appendOut));
                     System.setOut(fileOut);
                 } catch (Exception e) {
                     System.err.println("Shell error: Cannot write to file " + redirectFile);
@@ -82,7 +90,7 @@ public class Main {
                     if (errFile.getParentFile() != null) {
                         errFile.getParentFile().mkdirs();
                     }
-                    fileErr = new java.io.PrintStream(errFile);
+                    fileErr = new java.io.PrintStream(new FileOutputStream(errFile, false));
                     System.setErr(fileErr);
                 } catch (Exception e) {
                     System.err.println("Shell error: Cannot write to file " + redirectErrFile);
@@ -196,7 +204,11 @@ public class Main {
                     ProcessBuilder pb = new ProcessBuilder(parsedArgs);
                     
                     if (redirectFile != null) {
-                        pb.redirectOutput(new File(redirectFile));
+                        if (appendOut) {
+                            pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(redirectFile)));
+                        } else {
+                            pb.redirectOutput(new File(redirectFile));
+                        }
                     } else {
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                     }
