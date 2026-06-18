@@ -6,9 +6,24 @@ import java.util.Scanner;
 
 public class Main {
 
+    static class Job {
+        int id;
+        long pid;
+        String command;
+        String status;
+
+        Job(int id, long pid, String command, String status) {
+            this.id = id;
+            this.pid = pid;
+            this.command = command;
+            this.status = status;
+        }
+    }
+
     public static void main(String[] args) {
 
         Scanner scanner = new Scanner(System.in);
+        List<Job> activeJobs = new ArrayList<>();
         int jobCounter = 1;
 
         while (true) {
@@ -118,6 +133,9 @@ public class Main {
 
             try {
                 if (cmd.equals("jobs")) {
+                    for (Job job : activeJobs) {
+                        System.out.printf("[%d]+  %-24s%s\n", job.id, job.status, job.command);
+                    }
                     continue;
                 }
 
@@ -252,6 +270,8 @@ public class Main {
                     if (isBackground) {
                         long pid = process.pid();
                         originalOut.println("[" + jobCounter + "] " + pid);
+                        String rawCommand = input;
+                        activeJobs.add(new Job(jobCounter, pid, rawCommand, "Running"));
                         jobCounter++;
                     } else {
                         process.waitFor();
@@ -344,3 +364,5 @@ public class Main {
         return tokens;
     }
 }
+
+```
