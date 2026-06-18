@@ -33,6 +33,7 @@ public class Main {
             String redirectFile = null;
             String redirectErrFile = null;
             boolean appendOut = false;
+            boolean appendErr = false;
             int redirectIndex = -1;
 
             for (int i = parsedArgs.size() - 2; i >= 0; i--) {
@@ -50,6 +51,12 @@ public class Main {
                 } else if (arg.equals("2>")) {
                     redirectIndex = i;
                     redirectErrFile = parsedArgs.get(i + 1);
+                    appendErr = false;
+                    break;
+                } else if (arg.equals("2>>")) {
+                    redirectIndex = i;
+                    redirectErrFile = parsedArgs.get(i + 1);
+                    appendErr = true;
                     break;
                 }
             }
@@ -90,7 +97,7 @@ public class Main {
                     if (errFile.getParentFile() != null) {
                         errFile.getParentFile().mkdirs();
                     }
-                    fileErr = new java.io.PrintStream(new FileOutputStream(errFile, false));
+                    fileErr = new java.io.PrintStream(new FileOutputStream(errFile, appendErr));
                     System.setErr(fileErr);
                 } catch (Exception e) {
                     System.err.println("Shell error: Cannot write to file " + redirectErrFile);
@@ -214,7 +221,11 @@ public class Main {
                     }
 
                     if (redirectErrFile != null) {
-                        pb.redirectError(new File(redirectErrFile));
+                        if (appendErr) {
+                            pb.redirectError(ProcessBuilder.Redirect.appendTo(new File(redirectErrFile)));
+                        } else {
+                            pb.redirectError(new File(redirectErrFile));
+                        }
                     } else {
                         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
                     }
