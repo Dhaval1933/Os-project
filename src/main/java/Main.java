@@ -62,10 +62,6 @@ public class Main {
 
             String cmd = parsedArgs.get(0);
 
-            if (!cmd.equals("jobs")) {
-                reapJobsBeforePrompt(activeJobs);
-            }
-
             String redirectFile = null;
             String redirectErrFile = null;
             boolean appendOut = false;
@@ -103,6 +99,9 @@ public class Main {
             }
 
             if (parsedArgs.isEmpty()) {
+                if (!cmd.equals("jobs")) {
+                    reapJobsBeforePrompt(activeJobs);
+                }
                 continue;
             }
 
@@ -121,6 +120,9 @@ public class Main {
                     System.setOut(fileOut);
                 } catch (Exception e) {
                     System.err.println("Shell error: Cannot write to file " + redirectFile);
+                    if (!cmd.equals("jobs")) {
+                        reapJobsBeforePrompt(activeJobs);
+                    }
                     continue;
                 }
             }
@@ -135,6 +137,11 @@ public class Main {
                     System.setErr(fileErr);
                 } catch (Exception e) {
                     System.err.println("Shell error: Cannot write to file " + redirectErrFile);
+                    if (fileOut != null) fileOut.close();
+                    System.setOut(originalOut);
+                    if (!cmd.equals("jobs")) {
+                        reapJobsBeforePrompt(activeJobs);
+                    }
                     continue;
                 }
             }
@@ -346,6 +353,10 @@ public class Main {
                 }
                 System.out.flush();
                 System.err.flush();
+
+                if (!cmd.equals("jobs")) {
+                    reapJobsBeforePrompt(activeJobs);
+                }
             }
         }
     }
