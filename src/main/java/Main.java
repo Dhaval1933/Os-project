@@ -153,7 +153,7 @@ public class Main {
 
     /**
      * Parses the command line input into a list of arguments.
-     * Supports single quotes, double quotes, backslash escaping outside quotes, and concatenation.
+     * Treats backslashes inside single quotes as literal characters.
      */
     private static List<String> parseArguments(String input) {
         List<String> tokens = new ArrayList<>();
@@ -165,15 +165,13 @@ public class Main {
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
-            // Handle backslash outside of any quotes
+            // Handle backslash outside of ALL quotes
             if (c == '\\' && !inSingleQuotes && !inDoubleQuotes) {
                 if (i + 1 < input.length()) {
-                    // Peek at the next character and consume it literally
                     currentToken.append(input.charAt(i + 1));
-                    i++; // Skip processing the escaped character in the main loop
+                    i++; 
                     contentAdded = true;
                 } else {
-                    // Trailing backslash at the very end of input
                     currentToken.append(c);
                     contentAdded = true;
                 }
@@ -189,13 +187,13 @@ public class Main {
                 contentAdded = true;
             } 
             // Characters inside active quotes are added directly
+            // This ensures backslashes inside single quotes are kept raw and literal
             else if (inSingleQuotes || inDoubleQuotes) {
                 currentToken.append(c);
             } 
             // Normal characters outside of quotes
             else {
                 if (Character.isWhitespace(c)) {
-                    // White spaces act as delimiters outside quotes
                     if (currentToken.length() > 0 || contentAdded) {
                         tokens.add(currentToken.toString());
                         currentToken.setLength(0);
@@ -207,7 +205,6 @@ public class Main {
             }
         }
 
-        // Add the last remaining token if it exists
         if (currentToken.length() > 0 || contentAdded) {
             tokens.add(currentToken.toString());
         }
