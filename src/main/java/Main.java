@@ -30,6 +30,7 @@ public class Main {
             }
 
             String redirectFile = null;
+            String redirectErrFile = null;
             int redirectIndex = -1;
 
             for (int i = parsedArgs.size() - 2; i >= 0; i--) {
@@ -37,6 +38,10 @@ public class Main {
                 if (arg.equals(">") || arg.equals("1>")) {
                     redirectIndex = i;
                     redirectFile = parsedArgs.get(i + 1);
+                    break;
+                } else if (arg.equals("2>")) {
+                    redirectIndex = i;
+                    redirectErrFile = parsedArgs.get(i + 1);
                     break;
                 }
             }
@@ -53,7 +58,9 @@ public class Main {
             String cmd = parsedArgs.get(0);
 
             java.io.PrintStream originalOut = System.out;
+            java.io.PrintStream originalErr = System.err;
             java.io.PrintStream fileOut = null;
+            java.io.PrintStream fileErr = null;
 
             if (redirectFile != null) {
                 try {
@@ -65,6 +72,20 @@ public class Main {
                     System.setOut(fileOut);
                 } catch (Exception e) {
                     System.err.println("Shell error: Cannot write to file " + redirectFile);
+                    continue;
+                }
+            }
+
+            if (redirectErrFile != null) {
+                try {
+                    File errFile = new File(redirectErrFile);
+                    if (errFile.getParentFile() != null) {
+                        errFile.getParentFile().mkdirs();
+                    }
+                    fileErr = new java.io.PrintStream(errFile);
+                    System.setErr(fileErr);
+                } catch (Exception e) {
+                    System.err.println("Shell error: Cannot write to file " + redirectErrFile);
                     continue;
                 }
             }
@@ -95,11 +116,11 @@ public class Main {
                         if (resolved.isDirectory()) {
                             System.setProperty("user.dir", resolved.getAbsolutePath());
                         } else {
-                            originalOut.println("cd: " + path + ": No such file or directory");
+                            System.err.println("cd: " + path + ": No such file or directory");
                         }
 
                     } catch (Exception e) {
-                        originalOut.println("cd: " + path + ": No such file or directory");
+                        System.err.println("cd: " + path + ": No such file or directory");
                     }
 
                     continue;
@@ -144,7 +165,7 @@ public class Main {
                     if (found != null) {
                         System.out.println(targetCmd + " is " + found);
                     } else {
-                        System.out.println(targetCmd + ": not found");
+                        System.err.println(targetCmd + ": not found");
                     }
 
                     continue;
@@ -167,7 +188,7 @@ public class Main {
                 }
 
                 if (found == null) {
-                    originalOut.println(cmd + ": command not found");
+                    System.err.println(cmd + ": command not found");
                     continue;
                 }
 
@@ -176,17 +197,23 @@ public class Main {
                     
                     if (redirectFile != null) {
                         pb.redirectOutput(new File(redirectFile));
-                        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-                        pb.redirectInput(ProcessBuilder.Redirect.INHERIT);
                     } else {
-                        pb.inheritIO();
+                        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                     }
+
+                    if (redirectErrFile != null) {
+                        pb.redirectError(new File(redirectErrFile));
+                    } else {
+                        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+                    }
+
+                    pb.redirectInput(ProcessBuilder.Redirect.INHERIT);
 
                     Process process = pb.start();
                     process.waitFor();
 
                 } catch (Exception e) {
-                    originalOut.println("Error executing command");
+                    System.err.println("Error executing command");
                 }
 
             } finally {
@@ -194,7 +221,12 @@ public class Main {
                     fileOut.close();
                     System.setOut(originalOut);
                 }
+                if (fileErr != null) {
+                    fileErr.close();
+                    System.setErr(originalErr);
+                }
                 System.out.flush();
+                System.err.flush();
             }
         }
 
