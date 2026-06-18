@@ -9,6 +9,7 @@ public class Main {
     public static void main(String[] args) {
 
         Scanner scanner = new Scanner(System.in);
+        int jobCounter = 1;
 
         while (true) {
 
@@ -26,6 +27,16 @@ public class Main {
             }
 
             List<String> parsedArgs = parseArguments(input);
+            if (parsedArgs.isEmpty()) {
+                continue;
+            }
+
+            boolean isBackground = false;
+            if (parsedArgs.get(parsedArgs.size() - 1).equals("&")) {
+                isBackground = true;
+                parsedArgs.remove(parsedArgs.size() - 1);
+            }
+
             if (parsedArgs.isEmpty()) {
                 continue;
             }
@@ -237,7 +248,14 @@ public class Main {
                     pb.redirectInput(ProcessBuilder.Redirect.INHERIT);
 
                     Process process = pb.start();
-                    process.waitFor();
+
+                    if (isBackground) {
+                        long pid = process.pid();
+                        originalOut.println("[" + jobCounter + "] " + pid);
+                        jobCounter++;
+                    } else {
+                        process.waitFor();
+                    }
 
                 } catch (Exception e) {
                     System.err.println("Error executing command");
